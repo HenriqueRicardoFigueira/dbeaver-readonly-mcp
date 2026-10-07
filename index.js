@@ -185,8 +185,17 @@ server.tool(
     const [columns, constraints, indexes] = await Promise.all([
       runReadOnly(
         connection,
-        `SELECT column_name, data_type, character_maximum_length, is_nullable, column_default
-           FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position`,
+        // pg_attribute instead of information_schema.columns, which hides columns of tables you can't SELECT from.
+        `SELECT a.attname AS column_name,
+                format_type(a.atttypid, a.atttypmod) AS data_type,
+                NOT a.attnotnull AS nullable,
+                pg_get_expr(d.adbin, d.adrelid) AS column_default
+           FROM pg_attribute a
+           JOIN pg_class c ON c.oid = a.attrelid
+           JOIN pg_namespace n ON n.oid = c.relnamespace
+           LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+          WHERE n.nspname = $1 AND c.relname = $2 AND a.attnum > 0 AND NOT a.attisdropped
+          ORDER BY a.attnum`,
         params,
         HARD_MAX_ROWS,
       ),
@@ -205,6 +214,7 @@ server.tool(
         HARD_MAX_ROWS,
       ),
     ]);
+    if (columns.rows.length === 0) throw new Error(`Table "${params[0]}.${table}" not found`);
     return { columns: columns.rows, constraints: constraints.rows, indexes: indexes.rows };
   }),
 );
