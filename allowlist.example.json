@@ -1,0 +1,13 @@
+{
+  "connections": {
+    "MEU-POSTGRES-LOCAL": {},
+    "MEU-POSTGRES-STG": {
+      "database": "meu_banco",
+      "ssl": true
+    },
+    "MEU-RDS-COM-DNS-PROPRIO": {
+      "caFile": "certs/rds-global-bundle.pem",
+      "tlsServerName": "minha-instancia.abc123xyz.us-east-1.rds.amazonaws.com"
+    }
+  }
+}

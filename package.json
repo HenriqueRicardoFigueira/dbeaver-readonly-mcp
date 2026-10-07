@@ -1,0 +1,20 @@
+{
+  "name": "dbeaver-readonly-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.0",
+    "pg": "^8.16.0",
+    "zod": "^3.25.0"
+  },
+  "description": "MCP server somente leitura sobre as conexões salvas no DBeaver",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "fetch-rds-ca": "mkdir -p certs && curl -sSf -o certs/rds-global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem"
+  }
+}
