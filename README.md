@@ -78,3 +78,7 @@ dig +short meu-banco.minha-empresa.com CNAME
 ## Cuidados
 
 Libere bancos de produção com cuidado: o modo só leitura impede escrita, mas os dados retornados vão para o contexto do modelo.
+
+## Licença
+
+MIT. Veja [LICENSE](LICENSE).

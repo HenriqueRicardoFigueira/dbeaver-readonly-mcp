@@ -16,5 +16,6 @@
   "scripts": {
     "start": "node index.js",
     "fetch-rds-ca": "mkdir -p certs && curl -sSf -o certs/rds-global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem"
-  }
+  },
+  "license": "MIT"
 }
