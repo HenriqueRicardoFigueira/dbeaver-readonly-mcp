@@ -9,7 +9,7 @@
     "pg": "^8.16.0",
     "zod": "^3.25.0"
   },
-  "description": "MCP server somente leitura sobre as conexões salvas no DBeaver",
+  "description": "Read-only MCP server over your saved DBeaver connections",
   "engines": {
     "node": ">=20"
   },

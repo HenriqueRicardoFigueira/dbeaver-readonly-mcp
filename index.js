@@ -18,7 +18,7 @@ const DBEAVER_DIR =
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ALLOWLIST_PATH = process.env.DBEAVER_MCP_ALLOWLIST ?? join(HERE, 'allowlist.json');
 
-// Chave fixa e pública do DBeaver para o credentials-config.json; não é segredo nosso.
+// DBeaver's fixed, publicly known key for credentials-config.json; not a secret.
 const DBEAVER_CREDENTIALS_KEY = Buffer.from('babb4a9f774ab853c96c2d653dfe544a', 'hex');
 
 const STATEMENT_TIMEOUT_MS = 15000;
@@ -31,7 +31,7 @@ function readCredentials() {
   return JSON.parse(Buffer.concat([decipher.update(raw.subarray(16)), decipher.final()]).toString('utf8'));
 }
 
-// Host que é apelido (CNAME) de outro nome não bate com o certificado, e o pg força servername = host.
+// A host that is a CNAME alias won't match the certificate, and pg forces servername = host.
 function sslOptions({ ssl, caFile, tlsServerName }) {
   if (!caFile && !tlsServerName) return ssl ?? false;
   const options = {};
@@ -52,7 +52,7 @@ function loadConnections() {
     const overrides = allowlist[source.name];
     if (!overrides) continue;
     if (source.provider !== 'postgresql') {
-      throw new Error(`${source.name}: provider ${source.provider} ainda não suportado`);
+      throw new Error(`${source.name}: provider ${source.provider} is not supported yet`);
     }
     const cfg = source.configuration ?? {};
     const secret = credentials[id]?.['#connection'] ?? {};
@@ -75,10 +75,10 @@ const pools = new Map();
 function poolFor(name) {
   const conn = connections.get(name);
   if (!conn) {
-    throw new Error(`Conexão "${name}" não está liberada. Liberadas: ${[...connections.keys()].join(', ') || 'nenhuma'}`);
+    throw new Error(`Connection "${name}" is not in the allowlist. Allowed: ${[...connections.keys()].join(', ') || 'none'}`);
   }
   if (!conn.password) {
-    throw new Error(`"${name}" sem senha salva no DBeaver (marque "Save password" e não use o Secure Storage)`);
+    throw new Error(`"${name}" has no saved password in DBeaver (enable "Save password" and don't use Secure Storage)`);
   }
   if (!pools.has(name)) {
     pools.set(
@@ -101,7 +101,7 @@ function poolFor(name) {
   return pools.get(name);
 }
 
-// Protocolo estendido aceita um único statement: impede "COMMIT; DROP ..." de escapar da transação READ ONLY.
+// The extended protocol accepts a single statement, so "COMMIT; DROP ..." can't escape the READ ONLY transaction.
 async function runReadOnly(name, sql, params = [], maxRows = DEFAULT_MAX_ROWS) {
   const client = await poolFor(name).connect();
   try {
@@ -123,7 +123,7 @@ async function runReadOnly(name, sql, params = [], maxRows = DEFAULT_MAX_ROWS) {
 }
 
 const asText = (value) => ({ content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] });
-const asError = (err) => ({ isError: true, content: [{ type: 'text', text: `ERRO: ${err.message}` }] });
+const asError = (err) => ({ isError: true, content: [{ type: 'text', text: `ERROR: ${err.message}` }] });
 const guarded = (fn) => async (args) => {
   try {
     return asText(await fn(args));
@@ -136,7 +136,7 @@ const server = new McpServer({ name: 'dbeaver-readonly', version: '0.1.0' });
 
 server.tool(
   'list_connections',
-  'Lista as conexões do DBeaver liberadas no allowlist (somente leitura).',
+  'Lists the DBeaver connections enabled in the allowlist (read-only).',
   {},
   guarded(async () =>
     [...connections.values()].map(({ name, host, port, database, user }) => ({ name, host, port, database, user })),
@@ -145,7 +145,7 @@ server.tool(
 
 server.tool(
   'query',
-  'Executa UM statement SQL em transação READ ONLY (timeout de 15s). Use $1, $2... com params.',
+  'Runs ONE SQL statement in a READ ONLY transaction (15s timeout). Use $1, $2... with params.',
   {
     connection: z.string(),
     sql: z.string(),
@@ -157,7 +157,7 @@ server.tool(
 
 server.tool(
   'list_tables',
-  'Lista tabelas e views de um schema com o dono e se o usuário conectado tem SELECT.',
+  'Lists tables and views in a schema, with owner and whether the connected user has SELECT.',
   { connection: z.string(), schema: z.string().optional() },
   guarded(({ connection, schema }) =>
     runReadOnly(
@@ -178,7 +178,7 @@ server.tool(
 
 server.tool(
   'describe_table',
-  'Mostra colunas, constraints e índices de uma tabela.',
+  'Shows a table\'s columns, constraints and indexes.',
   { connection: z.string(), table: z.string(), schema: z.string().optional() },
   guarded(async ({ connection, table, schema }) => {
     const params = [schema ?? 'public', table];

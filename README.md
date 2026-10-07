@@ -1,84 +1,84 @@
 # dbeaver-readonly-mcp
 
-Servidor MCP que dá a um cliente MCP (Claude Code, Claude Desktop e afins) acesso **somente leitura** aos bancos que você já tem configurados no DBeaver, sem copiar credenciais para outro lugar.
+An MCP server that gives an MCP client (Claude Code, Claude Desktop and the like) **read-only** access to the databases you already have configured in DBeaver, without copying credentials anywhere else.
 
-## Como funciona
+## How it works
 
-- Lê host, porta, usuário e senha da configuração do DBeaver no momento em que sobe.
-- Só expõe as conexões listadas em `allowlist.json`, pelo nome que elas têm no DBeaver.
-- Toda consulta roda com `default_transaction_read_only=on`, dentro de `BEGIN READ ONLY` e com `ROLLBACK` no fim, com timeout de 15s e limite de linhas.
-- Aceita um único statement por chamada (protocolo estendido), então `COMMIT; DROP ...` é recusado.
-- Usa o seu usuário do banco: enxerga exatamente o que você enxerga no DBeaver.
+- Reads host, port, user and password from DBeaver's configuration at startup.
+- Only exposes the connections listed in `allowlist.json`, by their DBeaver name.
+- Every query runs with `default_transaction_read_only=on`, inside `BEGIN READ ONLY` and ending in `ROLLBACK`, with a 15s timeout and a row limit.
+- Accepts a single statement per call (extended protocol), so `COMMIT; DROP ...` is rejected.
+- Uses your own database user: it sees exactly what you see in DBeaver.
 
-Ferramentas: `list_connections`, `query`, `list_tables` (com dono e se você tem `SELECT`) e `describe_table`.
+Tools: `list_connections`, `query`, `list_tables` (with owner and whether you have `SELECT`) and `describe_table`.
 
-Hoje só PostgreSQL. Outros bancos precisam de driver novo.
+PostgreSQL only for now. Other databases need a new driver.
 
-## Requisitos
+## Requirements
 
 - Node 20+.
-- DBeaver com a senha salva na conexão ("Save password"). Senhas guardadas no Secure Storage (keychain do sistema) não são lidas.
+- DBeaver with the password saved on the connection ("Save password"). Passwords kept in Secure Storage (the OS keychain) are not read.
 
-A configuração do DBeaver é procurada em:
+DBeaver's configuration is looked up in:
 
-| Sistema | Pasta |
+| OS | Folder |
 | --- | --- |
 | macOS | `~/Library/DBeaverData/workspace6/General/.dbeaver` |
 | Linux | `~/.local/share/DBeaverData/workspace6/General/.dbeaver` |
 | Windows | `%APPDATA%\DBeaverData\workspace6\General\.dbeaver` |
 
-Para outro workspace ou projeto, defina `DBEAVER_CONFIG_DIR`. Para guardar o allowlist em outro lugar, `DBEAVER_MCP_ALLOWLIST`.
+For another workspace or project, set `DBEAVER_CONFIG_DIR`. To keep the allowlist elsewhere, set `DBEAVER_MCP_ALLOWLIST`.
 
-## Instalação
+## Installation
 
 ```bash
-git clone <repo> ~/.claude/mcp/dbeaver-readonly
+git clone https://github.com/HenriqueRicardoFigueira/dbeaver-readonly-mcp.git ~/.claude/mcp/dbeaver-readonly
 cd ~/.claude/mcp/dbeaver-readonly
 npm install
 cp allowlist.example.json allowlist.json
 claude mcp add --scope user dbeaver-readonly -- "$(which node)" ~/.claude/mcp/dbeaver-readonly/index.js
 ```
 
-Se o `node` padrão do shell for anterior ao 20, passe o caminho de um Node 20+ no `claude mcp add`.
+If your shell's default `node` is older than 20, pass the path to a Node 20+ binary to `claude mcp add`.
 
 ## allowlist.json
 
 ```json
 {
   "connections": {
-    "MEU-POSTGRES-LOCAL": {},
-    "MEU-POSTGRES-STG": { "database": "meu_banco", "ssl": true },
-    "MEU-RDS-COM-DNS-PROPRIO": {
+    "MY-LOCAL-POSTGRES": {},
+    "MY-STAGING-POSTGRES": { "database": "my_db", "ssl": true },
+    "MY-RDS-BEHIND-CUSTOM-DNS": {
       "caFile": "certs/rds-global-bundle.pem",
-      "tlsServerName": "minha-instancia.abc123xyz.us-east-1.rds.amazonaws.com"
+      "tlsServerName": "my-instance.abc123xyz.us-east-1.rds.amazonaws.com"
     }
   }
 }
 ```
 
-A chave é o nome da conexão no DBeaver. Todos os campos são opcionais:
+The key is the connection name in DBeaver. Every field is optional:
 
-- `database`: sobrescreve o banco da conexão, útil quando ela aponta para `postgres` e o banco de trabalho é outro.
-- `ssl`: `true` para TLS validado pelas CAs do sistema. Ausente, conecta sem TLS.
-- `caFile`: arquivo PEM com a CA que assina o certificado do servidor, relativo a esta pasta. Liga o TLS.
-- `tlsServerName`: nome a conferir no certificado quando o host da conexão é um apelido (CNAME) que o certificado não cobre. Liga o TLS.
+- `database`: overrides the connection's database, useful when it points to `postgres` and you work in another one.
+- `ssl`: `true` for TLS verified against the system CAs. When absent, connects without TLS.
+- `caFile`: PEM file with the CA that signs the server certificate, relative to this folder. Enables TLS.
+- `tlsServerName`: name to check in the certificate when the connection host is an alias (CNAME) the certificate doesn't cover. Enables TLS.
 
-Não há opção para desligar a verificação do certificado: se ela falhar, informe a CA certa em `caFile`.
+There is no option to turn certificate verification off: if it fails, point `caFile` to the right CA.
 
 ### Amazon RDS
 
-O certificado do RDS é assinado pelas CAs próprias da AWS, que não estão no sistema. `npm run fetch-rds-ca` baixa o bundle global oficial para `certs/rds-global-bundle.pem`.
+RDS certificates are signed by AWS's own CAs, which are not in the system trust store. `npm run fetch-rds-ca` downloads the official global bundle to `certs/rds-global-bundle.pem`.
 
-Se você conecta por um DNS próprio que aponta para a instância, o certificado só cobre o endpoint `*.rds.amazonaws.com`. Coloque esse endpoint em `tlsServerName`. Para descobrir qual é:
+If you connect through your own DNS name pointing to the instance, the certificate only covers the `*.rds.amazonaws.com` endpoint. Put that endpoint in `tlsServerName`. To find it:
 
 ```bash
-dig +short meu-banco.minha-empresa.com CNAME
+dig +short my-db.my-company.com CNAME
 ```
 
-## Cuidados
+## Caution
 
-Libere bancos de produção com cuidado: o modo só leitura impede escrita, mas os dados retornados vão para o contexto do modelo.
+Be careful when allowing production databases: read-only mode prevents writes, but the returned data goes into the model's context.
 
-## Licença
+## License
 
-MIT. Veja [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).

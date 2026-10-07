@@ -1,13 +1,13 @@
 {
   "connections": {
-    "MEU-POSTGRES-LOCAL": {},
-    "MEU-POSTGRES-STG": {
-      "database": "meu_banco",
+    "MY-LOCAL-POSTGRES": {},
+    "MY-STAGING-POSTGRES": {
+      "database": "my_db",
       "ssl": true
     },
-    "MEU-RDS-COM-DNS-PROPRIO": {
+    "MY-RDS-BEHIND-CUSTOM-DNS": {
       "caFile": "certs/rds-global-bundle.pem",
-      "tlsServerName": "minha-instancia.abc123xyz.us-east-1.rds.amazonaws.com"
+      "tlsServerName": "my-instance.abc123xyz.us-east-1.rds.amazonaws.com"
     }
   }
 }
